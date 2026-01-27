@@ -10,31 +10,46 @@ user_state = {}
 DATA_FILE = "registrations.txt"
 
 
+# --- Клавиатура запроса контакта ---
+def contact_keyboard():
+    return ReplyKeyboardMarkup(
+        [[KeyboardButton("📲 Отправить имя и телефон", request_contact=True)]],
+        resize_keyboard=True,
+        one_time_keyboard=False
+    )
+
+
+# --- Кнопка перехода в канал ---
+def channel_keyboard():
+    return InlineKeyboardMarkup(
+        [[InlineKeyboardButton("🎁 ЗАБРАТЬ ПОДАРОК", url="https://t.me/+a163cq-juqRjMzMy")]]
+    )
+
+
+# --- Команда /start ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     first_name = update.message.from_user.first_name
 
     text = (
         f"{first_name}, добро пожаловать в бот SMI 👋\n\n"
         "Он поможет вам зарегистрироваться на вебинар\n"
-        "«Инструменты инвестиций в 2026 году» и получить подарок – Инструкцию для новичков "
-        "\"Как открыть счет для торгов и правильно выбрать платформу/банк\" 🎁\n\n"
+        "«Инструменты инвестиций в 2026 году» и получить подарок 🎁\n\n"
         "Чтобы завершить регистрацию, нажмите кнопку ниже 👇"
     )
 
-    keyboard = ReplyKeyboardMarkup(
-        [[KeyboardButton("📲 Отправить имя и телефон", request_contact=True)]],
-        resize_keyboard=True,
-        one_time_keyboard=True
-    )
-
-    await update.message.reply_text(text, reply_markup=keyboard)
+    await update.message.reply_text(text, reply_markup=contact_keyboard())
     user_state[update.effective_user.id] = "WAIT_CONTACT"
 
 
+# --- Получение контакта ---
 async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
 
     if user_state.get(user_id) != "WAIT_CONTACT":
+        await update.message.reply_text(
+            "Регистрация уже пройдена ✅",
+            reply_markup=contact_keyboard()
+        )
         return
 
     contact = update.message.contact
@@ -45,39 +60,49 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with open(DATA_FILE, "a", encoding="utf-8") as f:
         f.write(f"{name} | {phone}\n")
 
-    # Убираем клавиатуру
-    await update.message.reply_text("Спасибо! Регистрируем вас...")
-
-    # Сообщение 2
+    # Сообщение подтверждения
     text = (
         f"{name}, поздравляю! 🎉\n\n"
         "Вы успешно зарегистрированы на вебинар\n"
         "10 февраля в 19:00\n"
-        "«Инструменты инвестиций в 2026 году»\n"
-        "Фондовые рынки и как на них зарабатывать в России и США\n\n"
-        "📍На эфире вас ждёт:\n"
-        "— обзор российского и американского инвестиционных рынков\n"
-        "— роль и ситуация с рублем в 2026 году\n"
-        "— что происходит с процентной ставкой в США\n"
-        "— разбор конкретных акций и причин их роста\n"
-        "— и приятный бонус, который раскроем уже в эфире 😉\n\n"
+        "«Инструменты инвестиций в 2026 году»\n\n"
         "Переходите в закрытый канал вебинара —\n"
-        "там мы будем делиться всеми новостями и именно туда пришлём ссылку на эфир 👇"
+        "там будет ссылка на эфир 👇"
     )
 
-    keyboard = InlineKeyboardMarkup(
-        [[InlineKeyboardButton("🎁 ЗАБРАТЬ ПОДАРОК", url="https://t.me/+a163cq-juqRjMzMy")]]
-    )
-
-    await update.message.reply_text(text, reply_markup=keyboard)
+    await update.message.reply_text(text, reply_markup=channel_keyboard())
 
     user_state[user_id] = "DONE"
 
 
+# --- Обработка любого текста ---
 async def fallback_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Пожалуйста, нажмите кнопку для отправки контакта ☝️")
+    user_id = update.effective_user.id
+
+    # Если ждём контакт — снова показываем кнопку
+    if user_state.get(user_id) == "WAIT_CONTACT":
+        await update.message.reply_text(
+            "Пожалуйста, нажмите кнопку для отправки имени и телефона 👇",
+            reply_markup=contact_keyboard()
+        )
+        return
+
+    # Если регистрация завершена
+    if user_state.get(user_id) == "DONE":
+        await update.message.reply_text(
+            "Вы уже зарегистрированы ✅\nПереходите в канал 👇",
+            reply_markup=channel_keyboard()
+        )
+        return
+
+    # Если пользователь написал без /start
+    await update.message.reply_text(
+        "Нажмите /start для начала регистрации",
+        reply_markup=contact_keyboard()
+    )
 
 
+# --- Запуск ---
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
