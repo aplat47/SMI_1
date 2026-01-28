@@ -1,13 +1,17 @@
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
+import re
 
-TOKEN = "8408634586:AAFC1aIugJxY3jdI1rgYUcTPXU1gozSj5pw"
+TOKEN = "YOUR_BOT_TOKEN"
 
 # Хранилище состояний пользователей
 user_state = {}
+user_data = {}   # user_id -> {"name":..., "phone":..., "email":...}
 
 # Файл для сохранения заявок
 DATA_FILE = "registrations.txt"
+
+EMAIL_REGEX = re.compile(r"[^@]+@[^@]+\.[^@]+")
 
 
 # --- Клавиатура запроса контакта ---
@@ -48,7 +52,7 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_state.get(user_id) != "WAIT_CONTACT":
         await update.message.reply_text(
             "Регистрация уже пройдена ✅",
-            reply_markup=contact_keyboard()
+            reply_markup=channel_keyboard()
         )
         return
 
@@ -56,12 +60,41 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = contact.first_name
     phone = contact.phone_number
 
-    # Сохраняем в файл
-    with open(DATA_FILE, "a", encoding="utf-8") as f:
-        f.write(f"{name} | {phone}\n")
+    # сохраняем временно
+    user_data[user_id] = {"name": name, "phone": phone}
 
-    # Сообщение подтверждения
-    text = (
+    await update.message.reply_text(
+        "Отлично! Теперь введите ваш email 📧"
+    )
+
+    user_state[user_id] = "WAIT_EMAIL"
+
+
+# --- Получение email ---
+async def handle_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    text = update.message.text
+
+    if user_state.get(user_id) != "WAIT_EMAIL":
+        return
+
+    if not EMAIL_REGEX.match(text):
+        await update.message.reply_text("❌ Неверный email. Попробуйте ещё раз:")
+        return
+
+    # сохраняем email
+    user_data[user_id]["email"] = text
+
+    name = user_data[user_id]["name"]
+    phone = user_data[user_id]["phone"]
+    email = user_data[user_id]["email"]
+
+    # Записываем всё в файл
+    with open(DATA_FILE, "a", encoding="utf-8") as f:
+        f.write(f"{name} | {phone} | {email}\n")
+
+    # Финальное сообщение
+    text_msg = (
         f"{name}, поздравляю! 🎉\n\n"
         "Вы успешно зарегистрированы на вебинар\n"
         "10 февраля в 19:00\n"
@@ -70,7 +103,7 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "там будет ссылка на эфир 👇"
     )
 
-    await update.message.reply_text(text, reply_markup=channel_keyboard())
+    await update.message.reply_text(text_msg, reply_markup=channel_keyboard())
 
     user_state[user_id] = "DONE"
 
@@ -79,7 +112,6 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def fallback_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
 
-    # Если ждём контакт — снова показываем кнопку
     if user_state.get(user_id) == "WAIT_CONTACT":
         await update.message.reply_text(
             "Пожалуйста, нажмите кнопку для отправки имени и телефона 👇",
@@ -87,7 +119,10 @@ async def fallback_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # Если регистрация завершена
+    if user_state.get(user_id) == "WAIT_EMAIL":
+        await handle_email(update, context)
+        return
+
     if user_state.get(user_id) == "DONE":
         await update.message.reply_text(
             "Вы уже зарегистрированы ✅\nПереходите в канал 👇",
@@ -95,7 +130,6 @@ async def fallback_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # Если пользователь написал без /start
     await update.message.reply_text(
         "Нажмите /start для начала регистрации",
         reply_markup=contact_keyboard()
