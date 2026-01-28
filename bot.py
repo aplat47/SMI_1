@@ -34,7 +34,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     keyboard = ReplyKeyboardMarkup(
-        [[KeyboardButton("📲 Отправить телефон", request_contact=True)]],
+        [[KeyboardButton("📲 Отправить имя и телефон", request_contact=True)]],
         resize_keyboard=True,
         one_time_keyboard=True
     )
@@ -107,3 +107,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
