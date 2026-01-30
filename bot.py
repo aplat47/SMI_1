@@ -13,7 +13,7 @@ from telegram.ext import (
     filters
 )
 
-TOKEN = "8408634586:AAFC1aIugJxY3jdI1rgYUcTPXU1gozSj5pw"   # ← вставь новый токен от BotFather
+TOKEN = "8408634586:AAEW-jBJSlEFL8bKVo9XZK8RuAzFMzulsWc"   # ← вставь новый токен от BotFather
 
 # Хранилище состояний пользователей
 user_state = {}
@@ -107,4 +107,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
