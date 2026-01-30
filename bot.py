@@ -1,3 +1,4 @@
+import sqlite3
 from telegram import (
     Update,
     ReplyKeyboardMarkup,
@@ -13,21 +14,41 @@ from telegram.ext import (
     filters
 )
 
-TOKEN = "8408634586:AAEW-jBJSlEFL8bKVo9XZK8RuAzFMzulsWc"   # ← вставь новый токен от BotFather
+TOKEN = "8408634586:AAEW-jBJSlEFL8bKVo9XZK8RuAzFMzulsWc"
 
 # Хранилище состояний пользователей
 user_state = {}
 
-# Файл для сохранения заявок
-DATA_FILE = "registrations.txt"
+# Файл базы данных
+DB_FILE = "registrations.db"
 
 
+# ---------- БАЗА ДАННЫХ ----------
+def init_db():
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS registrations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        name TEXT,
+        phone TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+
+    conn.commit()
+    conn.close()
+
+
+# ---------- HANDLERS ----------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     first_name = update.message.from_user.first_name
 
     text = (
         f"{first_name}, добро пожаловать в бот SMI 👋\n\n"
-         "Он поможет вам зарегистрироваться на вебинар\n"
+        "Он поможет вам зарегистрироваться на вебинар\n"
         "«Инструменты инвестиций в 2026 году» и получить подарок – Инструкцию для новичков "
         "\"Как открыть счет для торгов и правильно выбрать платформу/банк\" 🎁\n\n"
         "Чтобы завершить регистрацию, оставьте ваш номер телефона по кнопке ниже 👇🏻"
@@ -53,9 +74,18 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = contact.first_name or "Без имени"
     phone = contact.phone_number
 
-    # Сохраняем в файл
-    with open(DATA_FILE, "a", encoding="utf-8") as f:
-        f.write(f"{name} | {phone}\n")
+    # ---------- СОХРАНЕНИЕ В БД ----------
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "INSERT INTO registrations (user_id, name, phone) VALUES (?, ?, ?)",
+        (user_id, name, phone)
+    )
+
+    conn.commit()
+    conn.close()
+    # ----------------------------------
 
     await update.message.reply_text("Спасибо! Регистрируем вас...")
 
@@ -84,7 +114,7 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=keyboard
         )
 
-    # ✅ Сбрасываем состояние — можно проходить регистрацию заново
+    # Сброс состояния
     user_state.pop(user_id, None)
 
 
@@ -92,10 +122,15 @@ async def fallback_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
 
     if user_state.get(user_id) == "WAIT_CONTACT":
-        await update.message.reply_text("Пожалуйста, нажмите кнопку для отправки телефона ☝️")
+        await update.message.reply_text(
+            "Пожалуйста, нажмите кнопку для отправки телефона ☝️"
+        )
 
 
+# ---------- ЗАПУСК ----------
 def main():
+    init_db()  # ← создаём БД и таблицу
+
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
@@ -107,5 +142,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
