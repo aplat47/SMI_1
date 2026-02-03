@@ -17,7 +17,7 @@ CHANNEL_LINK = "https://t.me/+a163cq-juqRjMzMy"
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     first_name = update.message.from_user.first_name
 
-    text = (
+   text = (
         f"{name}, поздравляю! 🎉\n\n"
         "Вы успешно зарегистрированы на вебинар\n"
         "10 февраля в 19:00\n"
@@ -54,4 +54,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
