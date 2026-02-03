@@ -18,7 +18,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     first_name = update.message.from_user.first_name
 
    text = (
-        f"{name}, поздравляю! 🎉\n\n"
+        f"{first_name}, поздравляю! 🎉\n\n"
         "Вы успешно зарегистрированы на вебинар\n"
         "10 февраля в 19:00\n"
         "«Инструменты инвестиций в 2026 году»\n"
@@ -54,3 +54,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
