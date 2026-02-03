@@ -1,45 +1,16 @@
-import sqlite3
 from telegram import (
     Update,
-    ReplyKeyboardMarkup,
-    KeyboardButton,
     InlineKeyboardMarkup,
     InlineKeyboardButton
 )
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
-    MessageHandler,
-    ContextTypes,
-    filters
+    ContextTypes
 )
 
 TOKEN = "8408634586:AAEW-jBJSlEFL8bKVo9XZK8RuAzFMzulsWc"
-
-# Хранилище состояний пользователей
-user_state = {}
-
-# Файл базы данных
-DB_FILE = "registrations.db"
-
-
-# ---------- БАЗА ДАННЫХ ----------
-def init_db():
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS registrations (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        name TEXT,
-        phone TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-    """)
-
-    conn.commit()
-    conn.close()
+CHANNEL_LINK = "https://t.me/+a163cq-juqRjMzMy"
 
 
 # ---------- HANDLERS ----------
@@ -47,64 +18,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     first_name = update.message.from_user.first_name
 
     text = (
-        f"{first_name}, добро пожаловать в бот SMI 👋\n\n"
-        "Он поможет вам зарегистрироваться на вебинар\n"
-        "«Инструменты инвестиций в 2026 году» и получить подарок – Инструкцию для новичков "
-        "\"Как открыть счет для торгов и правильно выбрать платформу/банк\" 🎁\n\n"
-        "Чтобы завершить регистрацию, оставьте ваш номер телефона по кнопке ниже 👇🏻"
-    )
-
-    keyboard = ReplyKeyboardMarkup(
-        [[KeyboardButton("📲 Отправить имя и телефон", request_contact=True)]],
-        resize_keyboard=True,
-        one_time_keyboard=True
-    )
-
-    await update.message.reply_text(text, reply_markup=keyboard)
-    user_state[update.effective_user.id] = "WAIT_CONTACT"
-
-
-async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-
-    if user_state.get(user_id) != "WAIT_CONTACT":
-        return
-
-    contact = update.message.contact
-    name = contact.first_name or "Без имени"
-    phone = contact.phone_number
-
-    # ---------- СОХРАНЕНИЕ В БД ----------
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-
-    cursor.execute(
-        "INSERT INTO registrations (user_id, name, phone) VALUES (?, ?, ?)",
-        (user_id, name, phone)
-    )
-
-    conn.commit()
-    conn.close()
-    # ----------------------------------
-
-    await update.message.reply_text("Спасибо! Регистрируем вас...")
-
-    text = (
-        f"{name}, поздравляю! 🎉\n\n"
-        "Вы успешно зарегистрированы на вебинар\n"
-        "10 февраля в 19:00\n"
-        "«Инструменты инвестиций в 2026 году»\n\n"
-        "📍На эфире вас ждёт:\n"
-        "— обзор российского и американского рынков\n"
-        "— что будет с рублём\n"
-        "— ситуация со ставкой в США\n"
-        "— разбор перспективных акций\n"
-        "— бонус в прямом эфире 😉\n\n"
-        "Переходите в закрытый канал вебинара 👇"
+        f"{first_name}, добро пожаловать в SMI 👋\n\n"
+        "Переходите в закрытый канал вебинара\n"
+        "«Инструменты инвестиций в 2026 году» 👇"
     )
 
     keyboard = InlineKeyboardMarkup(
-        [[InlineKeyboardButton("🎁 ЗАБРАТЬ ПОДАРОК", url="https://t.me/+a163cq-juqRjMzMy")]]
+        [[InlineKeyboardButton("🎁 ПЕРЕЙТИ В КАНАЛ", url=CHANNEL_LINK)]]
     )
 
     with open("webinar.jpg", "rb") as photo:
@@ -114,29 +34,11 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=keyboard
         )
 
-    # Сброс состояния
-    user_state.pop(user_id, None)
-
-
-async def fallback_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-
-    if user_state.get(user_id) == "WAIT_CONTACT":
-        await update.message.reply_text(
-            "Пожалуйста, нажмите кнопку для отправки телефона ☝️"
-        )
-
 
 # ---------- ЗАПУСК ----------
 def main():
-    init_db()  # ← создаём БД и таблицу
-
     app = ApplicationBuilder().token(TOKEN).build()
-
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.CONTACT, handle_contact))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, fallback_text))
-
     app.run_polling()
 
 
